@@ -1,8 +1,4 @@
-use bevy_math::Vec3;
-use bevy_render::{
-    mesh::{Indices, Mesh},
-    render_resource::PrimitiveTopology,
-};
+use bevy::{asset::RenderAssetUsages, math::Vec3, mesh::{Indices, Mesh, PrimitiveTopology}};
 use blend::runtime::Instance;
 
 use crate::BevyBlenderError;
@@ -13,7 +9,7 @@ use crate::BevyBlenderError;
 #[macro_export]
 macro_rules! blender_mesh {
     ($blend_file:literal, $mesh_name:literal) => {
-        format!("{}#ME{}", $blend_file, $mesh_name).as_str()
+        format!("{}#ME{}", $blend_file, $mesh_name)
     };
 }
 
@@ -21,13 +17,13 @@ macro_rules! blender_mesh {
 pub(crate) fn instance_to_mesh(
     instance: Instance,
     blend_version: (u8, u8, u8),
-) -> anyhow::Result<Mesh> {
+) -> Result<Mesh, BevyBlenderError> {
     // Don't process instances of types other than mesh
     if instance.type_name != "Mesh" {
-        return Err(anyhow::Error::new(BevyBlenderError::InvalidInstanceType {
+        return Err(BevyBlenderError::InvalidInstanceType {
             expected: String::from("Mesh"),
             found: instance.type_name,
-        }));
+        });
     }
 
     // Takes a normalized i16 vector from instance, and converts it to a normalized f32 vector
@@ -130,11 +126,11 @@ pub(crate) fn instance_to_mesh(
     }
 
     // Create Bevy mesh
-    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-    mesh.set_indices(Some(Indices::U32(indices)));
-    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+    let mesh = Mesh::new(PrimitiveTopology::TriangleList, RenderAssetUsages::all())
+        .with_inserted_indices(Indices::U32(indices))
+        .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, positions)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_NORMAL, normals)
+        .with_inserted_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
 
     // Return Bevy mesh
     Ok(mesh)
@@ -184,126 +180,126 @@ fn calculate_vertex_normals(
     return normals_out;
 }
 
-#[cfg(nightly)]
-mod tests {
-    use super::instance_to_mesh;
-    use blend::{Blend, Instance};
+// #[cfg(nightly)]
+// mod tests {
+//     use super::instance_to_mesh;
+//     use blend::{Blend, Instance};
 
-    extern crate test;
-    use test::Bencher;
+//     extern crate test;
+//     use test::Bencher;
 
-    fn get_mesh_by_name<'a>(blend: &'a Blend, name: &str) -> Option<Instance<'a>> {
-        for mesh in blend.get_by_code(*b"ME") {
-            if mesh.get("id").get_string("name") == name {
-                return Some(mesh);
-            }
-        }
+//     fn get_mesh_by_name<'a>(blend: &'a Blend, name: &str) -> Option<Instance<'a>> {
+//         for mesh in blend.get_by_code(*b"ME") {
+//             if mesh.get("id").get_string("name") == name {
+//                 return Some(mesh);
+//             }
+//         }
 
-        None
-    }
+//         None
+//     }
 
-    #[bench]
-    fn instance_to_mesh_cube_192(b: &mut Bencher) {
-        let blend = Blend::from_path(
-            std::env::current_dir()
-                .unwrap()
-                .join(std::path::PathBuf::from("assets").join("benches31.blend")),
-        );
-        let version_raw = blend.blend.header.version;
-        let version = (
-            version_raw[0] - 48,
-            version_raw[1] - 48,
-            version_raw[2] - 48,
-        );
+//     #[bench]
+//     fn instance_to_mesh_cube_192(b: &mut Bencher) {
+//         let blend = Blend::from_path(
+//             std::env::current_dir()
+//                 .unwrap()
+//                 .join(std::path::PathBuf::from("assets").join("benches31.blend")),
+//         );
+//         let version_raw = blend.blend.header.version;
+//         let version = (
+//             version_raw[0] - 48,
+//             version_raw[1] - 48,
+//             version_raw[2] - 48,
+//         );
 
-        let mesh_instance = get_mesh_by_name(&blend, "MECube_192").unwrap();
+//         let mesh_instance = get_mesh_by_name(&blend, "MECube_192").unwrap();
 
-        b.iter(|| {
-            instance_to_mesh(mesh_instance.clone(), version).unwrap();
-        });
-    }
+//         b.iter(|| {
+//             instance_to_mesh(mesh_instance.clone(), version).unwrap();
+//         });
+//     }
 
-    #[bench]
-    fn instance_to_mesh_cube_768(b: &mut Bencher) {
-        let blend = Blend::from_path(
-            std::env::current_dir()
-                .unwrap()
-                .join(std::path::PathBuf::from("assets").join("benches31.blend")),
-        );
-        let version_raw = blend.blend.header.version;
-        let version = (
-            version_raw[0] - 48,
-            version_raw[1] - 48,
-            version_raw[2] - 48,
-        );
+//     #[bench]
+//     fn instance_to_mesh_cube_768(b: &mut Bencher) {
+//         let blend = Blend::from_path(
+//             std::env::current_dir()
+//                 .unwrap()
+//                 .join(std::path::PathBuf::from("assets").join("benches31.blend")),
+//         );
+//         let version_raw = blend.blend.header.version;
+//         let version = (
+//             version_raw[0] - 48,
+//             version_raw[1] - 48,
+//             version_raw[2] - 48,
+//         );
 
-        let mesh_instance = get_mesh_by_name(&blend, "MECube_768").unwrap();
+//         let mesh_instance = get_mesh_by_name(&blend, "MECube_768").unwrap();
 
-        b.iter(|| {
-            instance_to_mesh(mesh_instance.clone(), version).unwrap();
-        });
-    }
+//         b.iter(|| {
+//             instance_to_mesh(mesh_instance.clone(), version).unwrap();
+//         });
+//     }
 
-    #[bench]
-    fn instance_to_mesh_cube_3072(b: &mut Bencher) {
-        let blend = Blend::from_path(
-            std::env::current_dir()
-                .unwrap()
-                .join(std::path::PathBuf::from("assets").join("benches31.blend")),
-        );
-        let version_raw = blend.blend.header.version;
-        let version = (
-            version_raw[0] - 48,
-            version_raw[1] - 48,
-            version_raw[2] - 48,
-        );
+//     #[bench]
+//     fn instance_to_mesh_cube_3072(b: &mut Bencher) {
+//         let blend = Blend::from_path(
+//             std::env::current_dir()
+//                 .unwrap()
+//                 .join(std::path::PathBuf::from("assets").join("benches31.blend")),
+//         );
+//         let version_raw = blend.blend.header.version;
+//         let version = (
+//             version_raw[0] - 48,
+//             version_raw[1] - 48,
+//             version_raw[2] - 48,
+//         );
 
-        let mesh_instance = get_mesh_by_name(&blend, "MECube_3072").unwrap();
+//         let mesh_instance = get_mesh_by_name(&blend, "MECube_3072").unwrap();
 
-        b.iter(|| {
-            instance_to_mesh(mesh_instance.clone(), version).unwrap();
-        });
-    }
+//         b.iter(|| {
+//             instance_to_mesh(mesh_instance.clone(), version).unwrap();
+//         });
+//     }
 
-    #[bench]
-    fn instance_to_mesh_cube_12288(b: &mut Bencher) {
-        let blend = Blend::from_path(
-            std::env::current_dir()
-                .unwrap()
-                .join(std::path::PathBuf::from("assets").join("benches31.blend")),
-        );
-        let version_raw = blend.blend.header.version;
-        let version = (
-            version_raw[0] - 48,
-            version_raw[1] - 48,
-            version_raw[2] - 48,
-        );
+//     #[bench]
+//     fn instance_to_mesh_cube_12288(b: &mut Bencher) {
+//         let blend = Blend::from_path(
+//             std::env::current_dir()
+//                 .unwrap()
+//                 .join(std::path::PathBuf::from("assets").join("benches31.blend")),
+//         );
+//         let version_raw = blend.blend.header.version;
+//         let version = (
+//             version_raw[0] - 48,
+//             version_raw[1] - 48,
+//             version_raw[2] - 48,
+//         );
 
-        let mesh_instance = get_mesh_by_name(&blend, "MECube_12288").unwrap();
+//         let mesh_instance = get_mesh_by_name(&blend, "MECube_12288").unwrap();
 
-        b.iter(|| {
-            instance_to_mesh(mesh_instance.clone(), version).unwrap();
-        });
-    }
+//         b.iter(|| {
+//             instance_to_mesh(mesh_instance.clone(), version).unwrap();
+//         });
+//     }
 
-    #[bench]
-    fn instance_to_mesh_cube_49125(b: &mut Bencher) {
-        let blend = Blend::from_path(
-            std::env::current_dir()
-                .unwrap()
-                .join(std::path::PathBuf::from("assets").join("benches31.blend")),
-        );
-        let version_raw = blend.blend.header.version;
-        let version = (
-            version_raw[0] - 48,
-            version_raw[1] - 48,
-            version_raw[2] - 48,
-        );
+//     #[bench]
+//     fn instance_to_mesh_cube_49125(b: &mut Bencher) {
+//         let blend = Blend::from_path(
+//             std::env::current_dir()
+//                 .unwrap()
+//                 .join(std::path::PathBuf::from("assets").join("benches31.blend")),
+//         );
+//         let version_raw = blend.blend.header.version;
+//         let version = (
+//             version_raw[0] - 48,
+//             version_raw[1] - 48,
+//             version_raw[2] - 48,
+//         );
 
-        let mesh_instance = get_mesh_by_name(&blend, "MECube_49125").unwrap();
+//         let mesh_instance = get_mesh_by_name(&blend, "MECube_49125").unwrap();
 
-        b.iter(|| {
-            instance_to_mesh(mesh_instance.clone(), version).unwrap();
-        });
-    }
-}
+//         b.iter(|| {
+//             instance_to_mesh(mesh_instance.clone(), version).unwrap();
+//         });
+//     }
+// }
