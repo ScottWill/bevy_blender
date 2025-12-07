@@ -267,7 +267,6 @@ fn spawn_blender_object_with_error(
 
 /// Helper recursive function called by spawn_blender_object to spawn children
 fn spawn_children_objects(
-    // builder: &mut ChildBuilder,
     builder: &mut Commands,
     asset_server: &ResMut<AssetServer>,
     blend: &Blend,
